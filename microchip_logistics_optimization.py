@@ -297,15 +297,31 @@ def run():
     else:
         orders, warehouses, freight_rates, vmi_customers = generate_synthetic_data()
 
-    result = greedy_assign(orders, warehouses, freight_rates, vmi_customers, strategy="cost-first")
-    print(f"Heurística Cost-first executada em {result['elapsed']:.2f}s, custo total = ${result['total_cost']:,}")
+    resultados = []
 
-    result = greedy_assign(orders, warehouses, freight_rates, vmi_customers, strategy="weight-first")
-    print(f"Heurística Weight-first executada em {result['elapsed']:.2f}s, custo total = ${result['total_cost']:,}")
+    # Execução da heurística Cost-first
+    result_cost = greedy_assign(orders, warehouses, freight_rates, vmi_customers, strategy="cost-first")
+    print(f"Heurística Cost-first executada em {result_cost['elapsed']:.2f}s, custo total = ${result_cost['total_cost']:,}")
+    resultados.append({"strategy": "cost-first", "total_cost": result_cost["total_cost"], "elapsed": result_cost["elapsed"]})
 
-    df = pd.DataFrame(result['assignments'], columns=['order_id', 'warehouse', 'courier', 'service', 'total_cost'])
+    # Execução da heurística Weight-first
+    result_weight = greedy_assign(orders, warehouses, freight_rates, vmi_customers, strategy="weight-first")
+    print(f"Heurística Weight-first executada em {result_weight['elapsed']:.2f}s, custo total = ${result_weight['total_cost']:,}")
+    resultados.append({"strategy": "weight-first", "total_cost": result_weight["total_cost"], "elapsed": result_weight["elapsed"]})
+
+    # Salvar resultados da última execução em CSV
+    df = pd.DataFrame(result_weight['assignments'], columns=['order_id', 'warehouse', 'courier', 'service', 'total_cost'])
     df.to_csv(os.path.join(OUTPUT_DIR, 'assignments_result.csv'), index=False)
     print(f"→ Resultados salvos em {OUTPUT_DIR}/assignments_result.csv")
+
+    # Exibir resumo formatado
+    mostrar_resultados(resultados)
+def mostrar_resultados(resultados: List[Dict]):
+    table = []
+    for res in resultados:
+        table.append([res['strategy'], f"${res['total_cost']:,}", f"{res['elapsed']:.2f}s"])
+    print("\nResumo dos Resultados:")
+    print(tabulate(table, headers=["Estratégia", "Custo Total", "Tempo de Execução"], tablefmt="grid"))
 
 if __name__ == '__main__':
     run()
