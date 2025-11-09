@@ -1,13 +1,15 @@
 """
-Script: ffd_logistics.py
+Script: microchip_logistics_optimization.py
 -----------------------------------
-Este script implementa e executa uma heurística gulosa (First-Fit Decreasing / Greedy)
-para o problema de alocação logística baseado no artigo de Supply Chain Logistics Problem.
+Implementa uma heurística gulosa híbrida (Greedy Adaptativa)
+para o problema de alocação logística baseado no
+Supply Chain Logistics Problem Dataset.
 
 Objetivo:
 ---------
-O código busca minimizar o custo total de transporte e armazenamento, atribuindo pedidos
-a armazéns e transportadoras disponíveis, levando em consideração:
+Minimizar o custo total de transporte e armazenamento,
+atribuindo pedidos a armazéns e transportadoras disponíveis,
+levando em consideração:
 - pesos dos pedidos,
 - produtos compatíveis com cada armazém,
 - portos de origem,
@@ -29,11 +31,10 @@ Arquivos aceitos:
 Saídas geradas:
 ---------------
 - output/assignments_result.csv → lista de atribuições (pedido x armazém x custo)
-- saída no terminal com tempo total e custo final
+- saída no terminal com custo total e tempo de execução
 
 Dependências:
 -------------
-Instale as bibliotecas necessárias com:
     pip install pandas numpy pulp tabulate
 
 Desenvolvido para estudos de otimização logística e análise de heurísticas.
@@ -42,13 +43,10 @@ Desenvolvido para estudos de otimização logística e análise de heurísticas.
 import os
 import random
 import time
-from collections import defaultdict
 from dataclasses import dataclass
 from typing import List, Dict, Tuple
-
 import numpy as np
 import pandas as pd
-import pulp
 from tabulate import tabulate
 
 # -----------------------------
@@ -68,7 +66,6 @@ NUM_WAREHOUSES = 15
 NUM_PORTS = 11
 NUM_COURIERS = 9
 SERVICE_LEVELS = ["DTD", "DTP", "CRF"]
-
 VOLUME_DISCOUNTS = [(0, 1.0), (10, 0.95), (50, 0.90), (100, 0.85)]
 
 # -----------------------------
@@ -217,7 +214,7 @@ def get_unit_transport_cost(order: Order, warehouse: Warehouse, courier: Courier
     return round(base, 3)
 
 # -----------------------------
-# Heurística greedy fiel ao artigo
+# Heurística Greedy Adaptativa
 # -----------------------------
 def greedy_assign(orders, warehouses, freight_rates, vmi_customers, strategy="cost-first"):
     start = time.time()
@@ -278,6 +275,16 @@ def greedy_assign(orders, warehouses, freight_rates, vmi_customers, strategy="co
     return {'total_cost': round(total_cost, 2), 'elapsed': elapsed, 'assignments': assigned}
 
 # -----------------------------
+# Exibição de resultados
+# -----------------------------
+def mostrar_resultados(resultados: List[Dict]):
+    table = []
+    for res in resultados:
+        table.append([res['strategy'], f"${res['total_cost']:,}", f"{res['elapsed']:.2f}s"])
+    print("\nResumo dos Resultados:")
+    print(tabulate(table, headers=["Estratégia", "Custo Total", "Tempo de Execução"], tablefmt="grid"))
+
+# -----------------------------
 # Execução principal
 # -----------------------------
 def run():
@@ -299,29 +306,19 @@ def run():
 
     resultados = []
 
-    # Execução da heurística Cost-first
     result_cost = greedy_assign(orders, warehouses, freight_rates, vmi_customers, strategy="cost-first")
     print(f"Heurística Cost-first executada em {result_cost['elapsed']:.2f}s, custo total = ${result_cost['total_cost']:,}")
     resultados.append({"strategy": "cost-first", "total_cost": result_cost["total_cost"], "elapsed": result_cost["elapsed"]})
 
-    # Execução da heurística Weight-first
     result_weight = greedy_assign(orders, warehouses, freight_rates, vmi_customers, strategy="weight-first")
     print(f"Heurística Weight-first executada em {result_weight['elapsed']:.2f}s, custo total = ${result_weight['total_cost']:,}")
     resultados.append({"strategy": "weight-first", "total_cost": result_weight["total_cost"], "elapsed": result_weight["elapsed"]})
 
-    # Salvar resultados da última execução em CSV
     df = pd.DataFrame(result_weight['assignments'], columns=['order_id', 'warehouse', 'courier', 'service', 'total_cost'])
     df.to_csv(os.path.join(OUTPUT_DIR, 'assignments_result.csv'), index=False)
     print(f"→ Resultados salvos em {OUTPUT_DIR}/assignments_result.csv")
 
-    # Exibir resumo formatado
     mostrar_resultados(resultados)
-def mostrar_resultados(resultados: List[Dict]):
-    table = []
-    for res in resultados:
-        table.append([res['strategy'], f"${res['total_cost']:,}", f"{res['elapsed']:.2f}s"])
-    print("\nResumo dos Resultados:")
-    print(tabulate(table, headers=["Estratégia", "Custo Total", "Tempo de Execução"], tablefmt="grid"))
 
 if __name__ == '__main__':
     run()
