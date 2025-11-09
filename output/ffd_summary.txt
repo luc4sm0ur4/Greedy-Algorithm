@@ -1,0 +1,5 @@
+Total de pedidos: 9215
+Pedidos atribuídos: 0
+Inviáveis: 9215
+Custo total: 0.00
+Tempo: 9.096s
