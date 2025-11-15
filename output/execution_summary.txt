@@ -1,0 +1,4 @@
+Pedidos atribuídos: 551
+Pedidos inviáveis: 8665
+Custo total (USD): $8,509.22
+Tempo de execução: 0.02s
