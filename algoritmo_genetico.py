@@ -77,28 +77,27 @@ def initialize_population(orders, warehouses, freight_rates):
 def evaluate_individual(individual, orders, warehouses, freight_rates):
     warehouses_capacity = {w.wid: w.capacity_daily for w in warehouses.values()}
     total_cost = 0.0
+    num_atribuidos = 0
     for order_id, w_id in individual.items():
         if w_id is None:
-            total_cost += 1e4
-            continue
+            continue  # Não soma o custo para inviáveis, apenas ignora como no artigo!
         order = orders[order_id]
         wh = warehouses[w_id]
         if warehouses_capacity[w_id] < order.weight:
-            total_cost += 1e6
-            continue
+            continue  # Não atribui se estourar capacidade
         costs = []
         for fr in freight_rates:
             if fr.service_level != order.service_level:
                 continue
-            # custo de transporte + armazenagem proporcional
             cost = get_unit_transport_cost(order, wh, fr) + wh.storage_cost_per_unit * order.weight
             costs.append(cost)
         if not costs:
-            total_cost += 1e5
             continue
         min_cost = min(costs)
         total_cost += min_cost
         warehouses_capacity[w_id] -= order.weight
+        num_atribuidos += 1
+    print(f"Atribuídos: {num_atribuidos}, Não atribuídos: {len(individual) - num_atribuidos}, Custo: {total_cost:.2f}")
     return total_cost
 
 def tournament_selection(population, fitnesses):
@@ -135,8 +134,43 @@ def mutation(individual, warehouses, orders):
 def genetic_algorithm(orders, warehouses, freight_rates):
     population = initialize_population(orders, warehouses, freight_rates)
     best_solution, best_cost = None, float('inf')
+    best_num_atribuidos = 0
     for gen in range(GENERATIONS):
-        fitnesses = [evaluate_individual(ind, orders, warehouses, freight_rates) for ind in population]
+        fitnesses = []
+        num_atribuidos_gen = []
+        for ind in population:
+            warehouses_capacity = {w.wid: w.capacity_daily for w in warehouses.values()}
+            total_cost = 0.0
+            num_atribuidos = 0
+            for order_id, w_id in ind.items():
+                if w_id is None:
+                    continue
+                order = orders[order_id]
+                wh = warehouses[w_id]
+                if warehouses_capacity[w_id] < order.weight:
+                    continue
+                costs = []
+                for fr in freight_rates:
+                    if fr.service_level != order.service_level:
+                        continue
+                    cost = get_unit_transport_cost(order, wh, fr) + wh.storage_cost_per_unit * order.weight
+                    costs.append(cost)
+                if not costs:
+                    continue
+                min_cost = min(costs)
+                total_cost += min_cost
+                warehouses_capacity[w_id] -= order.weight
+                num_atribuidos += 1
+            fitnesses.append(total_cost)
+            num_atribuidos_gen.append(num_atribuidos)
+        max_atr = max(num_atribuidos_gen)
+        i_best = min([(cost, -atr, idx) for idx, (atr, cost) in enumerate(zip(num_atribuidos_gen, fitnesses))])[2]
+        if max_atr > best_num_atribuidos or (max_atr == best_num_atribuidos and fitnesses[i_best] < best_cost):
+            best_solution = population[i_best]
+            best_cost = fitnesses[i_best]
+            best_num_atribuidos = num_atribuidos_gen[i_best]
+        print(f"Geração {gen+1}: melhor atribuição {max_atr}/{len(orders)}, custo: {fitnesses[i_best]:.2f}")
+        # evolução padrão
         new_population = []
         while len(new_population) < POPULATION_SIZE:
             parent1, parent2 = tournament_selection(population, fitnesses)
@@ -145,14 +179,9 @@ def genetic_algorithm(orders, warehouses, freight_rates):
             child2 = mutation(child2, warehouses, orders)
             new_population.extend([child1, child2])
         population = new_population[:POPULATION_SIZE]
-        gen_best_cost = min(fitnesses)
-        if gen_best_cost < best_cost:
-            best_cost = gen_best_cost
-            best_solution = population[fitnesses.index(gen_best_cost)]
-        print(f"Geração {gen+1}, Melhor custo: {best_cost:.2f}")
     return best_solution, best_cost
 
-# Funções utilitárias para carregar dados dos CSVs
+# Funções utilitárias para carregar e gerar datasets
 
 def load_orders_csv(path: str):
     import pandas as pd
